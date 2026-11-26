@@ -17,8 +17,10 @@
 
 ## 소스 받기
 
+현재 MemWatch v2 소스는 `landy` 브랜치에 있다.
+
 ```bash
-git clone https://github.com/landy359/security-project.git
+git clone --branch landy https://github.com/landy359/security-project.git
 cd security-project
 ```
 
@@ -81,8 +83,6 @@ Docker에서는 두 명령의 Python을 `/config/memwatch-venv/bin/python`으로
 | Tk를 불러올 수 없거나 창이 안 뜸 | `python3-tk` 설치와 `DISPLAY`를 확인하고 Ubuntu 데스크톱 터미널에서 다시 실행한다. |
 | 호스트에서 Docker 대시보드 접속 실패 | 컨테이너 포트 매핑과 `--bind 0.0.0.0`을 확인한다. |
 | 코드 검사 미확인 또는 권한 오류 | 대시보드의 검사 상세에서 원인을 확인한다. 감시기가 같은 Linux 환경에서 대상을 직접 실행했는지, 실행 사용자에게 해당 프로세스 읽기 권한이 있는지 확인한다. |
-
-감시 기준과 실행 옵션의 상세 설명은 [감시 기능 안내](docs/monitoring.md)를 참고한다.
 
 ## 팀 작업 흐름
 
