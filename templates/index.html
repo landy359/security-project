@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="ko">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1" name="viewport"/>
+  <meta content="{{ token }}" name="control-token"/>
+  <title>
+   MemWatch · 프로세스 감시
+  </title>
+  <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet"/>
+  <script defer="" src="{{ url_for('static', filename='dashboard.js') }}">
+  </script>
+ </head>
+ <body>
+  <header>
+   <div class="mast">
+    <a class="brand" href="#overview">
+     <span aria-hidden="true" class="mark">
+      ∿
+     </span>
+     MemWatch
+    </a>
+    <nav>
+     <a href="#overview">
+      감시 현황
+     </a>
+     <a href="#baseline">
+      기준값
+     </a>
+     <a href="#events">
+      이벤트 기록
+     </a>
+    </nav>
+    <span id="connection" role="status">
+     연결 중
+    </span>
+   </div>
+  </header>
+  <main id="overview">
+   <div class="heading">
+    <div>
+     <p class="eyebrow" id="target-type">
+      LINUX PROCESS MONITOR
+     </p>
+     <h1>
+      프로세스 감시
+     </h1>
+    </div>
+    <div class="live">
+     <span class="badge" id="phase">
+      대기
+     </span>
+     <small id="updated">
+      수신 대기
+     </small>
+    </div>
+   </div>
+   <div aria-live="polite" hidden="" id="notice">
+   </div>
+   <section class="target">
+    <div>
+     <label for="target-select">감시 대상</label>
+     <select id="target-select" disabled></select>
+     <p id="target-hint"></p>
+     <p id="target">
+      대상을 실행하거나 정상 기준 측정을 시작하세요.
+     </p>
+    </div>
+    <div class="actions">
+     <button data-act="launch">
+      대상 실행
+     </button>
+     <button class="primary" data-act="start">
+      감시 시작
+     </button>
+     <button data-act="stop">
+      감시 중지
+     </button>
+     <button data-act="close">
+      대상 종료
+     </button>
+    </div>
+   </section>
+   <div class="metrics">
+    <article>
+     <h3>
+      전체 상주 메모리
+     </h3>
+     <div class="metric" id="total">
+      —
+     </div>
+     <small>
+      RSS · MiB
+     </small>
+    </article>
+    <article>
+     <h3>
+      RSS 경고 영역
+     </h3>
+     <div class="metric" id="issue-count">
+      —
+     </div>
+     <small id="risk-note">
+      측정 대기
+     </small>
+    </article>
+    <article>
+     <h3>
+      코드 무결성
+     </h3>
+     <div class="metric word" id="hash-status">
+      대기
+     </div>
+     <small id="hash-time">
+      SHA-256
+     </small>
+    </article>
+   </div>
+   <section class="card">
+    <div class="card-head">
+     <div>
+      <h2>
+       메모리 추이
+      </h2>
+      <p id="interval">
+      </p>
+     </div>
+     <label>
+      표시 영역
+      <select aria-label="그래프 RSS 영역" id="region">
+      </select>
+     </label>
+    </div>
+    <canvas aria-label="선택한 영역의 RSS, 주의 및 위험 경계와 이상 시점" id="chart" role="img">
+    </canvas>
+    <div class="legend">
+     <span class="rss-line">
+      RSS
+     </span>
+     <span class="limit-line">
+      정상 Limit
+     </span>
+     <span class="danger-line">
+      위험 경계
+     </span>
+     <span>
+      ● RSS 경고
+     </span>
+     <span>
+      ▼ 해시 불일치
+     </span>
+    </div>
+   </section>
+   <div class="twocol">
+    <section class="card">
+     <div class="card-head">
+      <h2>
+       영역별 RSS
+      </h2>
+      <small>
+       단위 MiB
+      </small>
+     </div>
+     <div class="scroll">
+      <table>
+       <thead>
+        <tr>
+         <th>
+          영역
+         </th>
+         <th>
+          현재
+         </th>
+         <th>
+          Limit
+         </th>
+         <th>
+          위험 경계
+         </th>
+         <th>
+          상태
+         </th>
+        </tr>
+       </thead>
+       <tbody id="memory-rows">
+       </tbody>
+      </table>
+     </div>
+     <details id="map-view">
+      <summary>
+       현재 매핑 주소와 권한 보기
+      </summary>
+      <p id="map-note">
+      </p>
+      <pre id="map-rows"></pre>
+     </details>
+    </section>
+    <section class="card">
+     <h2>
+      경고 및 대응
+     </h2>
+     <p aria-live="polite" id="warning-text">
+     </p>
+     <ul id="warnings">
+     </ul>
+     <div class="actions">
+      <button class="primary" data-act="approve">
+       이번 경고 허용
+      </button>
+      <button data-act="freeze">
+       대상 동결
+      </button>
+      <button data-act="resume">
+       대상 재개
+      </button>
+     </div>
+     <hr/>
+     <div class="card-head">
+      <h3>
+       코드 검사 결과
+      </h3>
+      <button data-act="hash">
+       지금 검사
+      </button>
+     </div>
+     <p id="hash-summary">
+     </p>
+     <details id="hash-details">
+      <summary>
+       검사 범위와 차이 보기
+      </summary>
+      <pre id="hash-detail"></pre>
+     </details>
+    </section>
+   </div>
+   <section class="card" id="baseline">
+    <div class="card-head">
+     <div>
+      <h2>
+       정상 기준값
+      </h2>
+      <p id="base-meta">
+      </p>
+     </div>
+     <div class="actions">
+      <button data-act="calibrate">
+       정상 실행 반복 측정
+      </button>
+      <button data-act="calibrate_manual">작업을 마칠 때까지 측정</button>
+      <button data-act="finish_run">이번 실행 측정 완료</button>
+      <button class="primary" data-act="save">
+       측정값 저장
+      </button>
+     </div>
+    </div>
+    <p aria-live="polite" id="cal-progress">
+    </p>
+    <div id="candidate">
+    </div>
+   </section>
+   <section class="card" id="events">
+    <div class="card-head">
+     <div>
+      <h2>
+       이벤트 기록
+      </h2>
+      <p>
+       이벤트를 펼치면 당시 측정값과 처리 결과를 볼 수 있습니다.
+      </p>
+     </div>
+     <a class="button" href="/api/report.csv" id="export">
+      CSV 리포트
+     </a>
+    </div>
+    <form id="filter">
+     <input aria-label="이벤트 검색" id="query" placeholder="내용, PID 또는 유형 검색" type="search"/>
+     <select aria-label="이벤트 수준" id="level">
+      <option value="">
+       모든 수준
+      </option>
+      <option value="danger">
+       위험
+      </option>
+      <option value="warning">
+       주의
+      </option>
+      <option value="unknown">
+       미확인
+      </option>
+      <option value="ok">
+       정상
+      </option>
+      <option value="info">
+       정보
+      </option>
+     </select>
+     <button>
+      검색
+     </button>
+    </form>
+    <div id="event-list">
+    </div>
+    <button hidden="" id="more">
+     이전 기록 더 보기
+    </button>
+   </section>
+  </main>
+ </body>
+</html>
