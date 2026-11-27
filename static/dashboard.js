@@ -35,7 +35,7 @@ const confirmations = {
   calibrate_manual: '새 프로세스로 기준을 측정합니다. 저장할 작업이 있으면 먼저 저장하세요. 각 실행에서 평소 작업을 마친 후 직접 완료 버튼을 누르세요.',
   save: '측정한 값과 코드 해시를 이 프로필의 정상 기준으로 저장할까요?',
   close: '현재 대상을 종료할까요? 대상의 저장하지 않은 작업과 진행 중인 측정은 사라질 수 있습니다.',
-  resume: '대상을 재개할까요? 해시 차이가 남아 있으면 다음 검사에서 다시 동결됩니다.',
+  resume: '대상을 일반 재개할까요?',
   freeze: '현재 대상 프로세스를 동결할까요?'
 };
 let state, busy = false, refreshing = false, loadId = 0, olderThan = 0, browsing = false;
@@ -101,6 +101,7 @@ function render(s) {
     approve: live && !!Object.keys(s.issues).length && Object.values(s.issues).every(issue => issue.level === 'warning') && !s.allowed && !s.rss_error,
     freeze: live,
     resume: frozen,
+    force_resume: frozen,
     hash: live || frozen,
     calibrate: ['idle', 'ready', 'review'].includes(phase),
     calibrate_manual: ['idle', 'ready', 'review'].includes(phase),
@@ -119,8 +120,18 @@ function render(s) {
       count                                ? '기준 초과' :
                                              '기준 초과 없음';
   if (!live && !frozen) $('risk-note').textContent = '감시 대기';
-  $('hash-status').textContent = hashNames[s.hash?.result] ?? '대기';
-  $('hash-time').textContent = s.hash ? clock(s.hash.ts) + ' · ' + s.hash.reason : 'SHA-256';
+  const h = s.hash;
+  const hashStatus = h?.retry ? '재검사 예정' :
+      h?.result === 'unknown' && h.consecutive_unverified >= 3 ? '검증 불가' :
+      hashNames[h?.result] ?? '대기';
+  confirmations.force_resume = '현재 코드 검사 결과는 ' + hashStatus +
+      '입니다. 강제 재개하면 확인되지 않은 코드가 실행될 수 있습니다. ' +
+      (s.demo ? '시연 대상은 최대 10초 뒤 재검사합니다. ' : '재개 직후 다시 검사합니다. ') +
+      '계속할까요?';
+  $('hash-status').textContent = hashStatus;
+  $('hash-time').textContent = h ?
+      '파일 기반 실행 코드 · ' + (h.checked ? '검사 제외 ' + h.excluded.length + '개' : '범위 확인 불가') :
+      '파일 기반 실행 코드 · SHA-256';
   $('interval').textContent =
       'RSS ' + s.settings.rss_seconds + '초 · 코드 검사 ' + s.settings.hash_seconds + '초';
   const body = $('memory-rows');
@@ -137,7 +148,9 @@ function render(s) {
     body.append(tr);
   }
   $('warning-text').textContent = frozen ?
-      '대상이 정지했습니다. 웹 화면에서 결과를 확인하고 재개할 수 있습니다.' :
+      (s.freeze_reason === '코드 해시 불일치' ?
+        '코드 해시 불일치로 동결했습니다. 일반 재개는 코드 일치가 확인되어야 합니다.' :
+        '대상이 정지했습니다. 검사 결과를 확인하고 재개할 수 있습니다.') :
       s.rss_error ? 'RSS 미확인 · ' + s.rss_error :
       s.allowed   ? '사용자가 이번 경고를 허용했습니다. 기준값과 위험 표시는 유지됩니다.' :
       Object.values(s.issues).some(i => i.level === 'danger') ? '위험 경계를 초과했습니다. 코드 검사 결과를 확인하세요.' :
@@ -150,9 +163,8 @@ function render(s) {
               'li',
               labels[k] + ' · ' + levels[v.level] + ' · Limit보다 ' + fmt(v.excess) + ' MiB 초과 (' +
                   v.percent + '%)')));
-  const h = s.hash;
   $('hash-summary').textContent = h ?
-      '파일 기반 실행 매핑 ' + h.checked + '개 검사 · ' + hashNames[h.result] :
+      '파일 기반 실행 매핑 ' + h.checked + '개 검사 · ' + hashStatus + ' · ' + clock(h.ts) + ' · ' + h.reason :
       '기준값 저장 후 감시를 시작하세요.';
   $('hash-detail').textContent = h ?
       JSON.stringify(

@@ -1,4 +1,4 @@
-# MemWatch v2
+# MemWatch v3
 
 정보보호 팀 프로젝트. Linux에서 프로그램을 실행하고 메모리 사용량(RSS)과 파일 기반 실행 코드의 무결성을 감시한다. 웹 대시보드에서 이미지 뷰어 또는 지뢰찾기를 선택하고, 정상 기준을 수집한 뒤 경고와 이벤트를 확인할 수 있다.
 
@@ -22,7 +22,7 @@ git clone https://github.com/landy359/security-project.git
 cd security-project
 ```
 
-아래 명령은 **MemWatch v2의 `app.py`와 `requirements.txt`가 있는 폴더**에서 실행한다. 수업 자료가 있는 로컬 프로젝트에서는 `코드 히스토리/MemWatch-v2`가 해당 폴더다. 기존 Docker 환경에서는 v2 폴더를 컨테이너에 연결된 `Codes` 아래에 두면 `/workspace/MemWatch-v2`에서 열 수 있다.
+아래 명령은 **MemWatch v3의 `app.py`와 `requirements.txt`가 있는 폴더**에서 실행한다. 수업 자료가 있는 로컬 프로젝트에서는 `코드 히스토리/MemWatch-v3`가 해당 폴더다. 기존 Docker 환경에서는 v2 폴더를 컨테이너에 연결된 `Codes` 아래에 두면 `/workspace/MemWatch-v3`에서 열 수 있다.
 
 ## Ubuntu에서 설치 및 실행
 
@@ -41,10 +41,10 @@ python3 -m venv .venv
 호스트에서 `docker start security-desktop`으로 기존 컨테이너를 시작한다. [Ubuntu 데스크톱](https://127.0.0.1:3001)의 XFCE 터미널에서 실행한다. 컨테이너에 Tk가 설치되어 있어야 하며, 호스트에서 대시보드에 접속하려면 컨테이너를 만들 때 `127.0.0.1:5000:5000` 포트 매핑을 설정해야 한다.
 
 ```bash
-cd /workspace/MemWatch-v2
+cd /workspace/MemWatch-v3
 python3 -m venv --system-site-packages /config/memwatch-venv
 /config/memwatch-venv/bin/python -m pip install -r requirements.txt
-/config/memwatch-venv/bin/python app.py --bind 0.0.0.0 --data /config/memwatch-data-v2
+/config/memwatch-venv/bin/python app.py --bind 0.0.0.0 --data /config/memwatch-data-v3
 ```
 
 이 구성에서는 호스트 브라우저에서 [대시보드](http://127.0.0.1:5000)를 연다. `/config`는 기존 환경에서 가상환경과 감시 데이터를 두는 경로다.
@@ -55,6 +55,12 @@ python3 -m venv --system-site-packages /config/memwatch-venv
 2. **작업을 마칠 때까지 측정**을 누르고 평소처럼 앱을 사용한다. 기본 최소 12개 표본이 모이면 **이번 실행 측정 완료**를 누른다. 기본 3회의 독립 실행을 완료한다.
 3. 영역별 측정값을 검토하고 **측정값 저장**을 누른다.
 4. **감시 시작**을 누르고 그래프, 경고, 이벤트가 갱신되는지 확인한다. 다른 환경이나 앱 버전에서 테스트할 때는 해당 환경에서 기준을 다시 측정한다.
+
+## 동결 후 재개
+
+- **일반 재개**는 해시 불일치로 동결된 대상을 정지 상태에서 검사한다. 기준 해시와 일치하면 재개한다.
+- **강제 재개**는 현재 검사 결과를 확인한 뒤 사용자가 선택할 수 있다. 일반 대상은 재개 직후 다시 검사하고, 불일치가 남으면 다시 동결한다. 시연 대상은 최대 10초 안에 게임 창에서 **v1 복원**을 누른 뒤 **지금 검사**로 결과를 확인할 수 있다.
+- 코드 무결성 카드에는 파일 기반 실행 코드 검사 범위와 제외된 매핑 수가 표시된다. 감시 중 검사 실패는 제한적으로 재시도하며, 세 번 연속 미확인이면 **검증 불가**를 표시한다.
 
 ## 코드와 테스트
 

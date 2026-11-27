@@ -336,12 +336,35 @@ class EngineTests(unittest.TestCase):
         self.engine.tick()
         self.assertEqual(self.engine.phase, "frozen")
         self.assertFalse(self.engine.issues)
+        with self.assertRaises(ActionError):
+            self.act("resume")
+        self.assertEqual(self.engine.phase, "frozen")
+        self.assertTrue(self.engine.process.stopped)
+
+        self.act("force_resume")
+        self.assertEqual(self.engine.phase, "frozen")
+        self.assertEqual(self.engine.hash["reason"], "강제 재개 직후 검사")
+        self.assertEqual(self.engine.hash["changes"][0]["actual"], "b" * 64)
+
+        self.read["digests"] = {"native.so": "a" * 64}
         self.act("resume")
         self.assertEqual(self.engine.phase, "watching")
-        self.engine.next_hash = 0
-        self.engine.tick()
-        self.assertEqual(self.engine.phase, "frozen")
-        self.assertEqual(self.engine.hash["changes"][0]["actual"], "b" * 64)
+        self.assertFalse(self.engine.process.stopped)
+
+    def test_unverified_retries_then_recovers(self):
+        self.watch()
+        self.read["errors"] = ["permission denied"]
+        for attempt in range(1, 5):
+            self.engine.next_hash = 0
+            self.engine.tick()
+            self.assertEqual(self.engine.hash["result"], "unknown")
+            self.assertEqual(self.engine.hash["consecutive_unverified"], attempt)
+            self.assertEqual(self.engine.hash["retry"], attempt <= 2)
+            self.assertEqual(self.engine.phase, "watching")
+        self.read["errors"] = []
+        self.act("hash")
+        self.assertEqual(self.engine.hash["result"], "match")
+        self.assertEqual(self.engine.hash["consecutive_unverified"], 0)
 
     def test_hash_read_failure_never_approves(self):
         self.watch()

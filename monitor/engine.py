@@ -66,6 +66,8 @@ class Engine:
         self.hash_alerts = deque(maxlen=60)
         self.last_rss = self.hash = self.started = self.rss_error = None
         self.kernel_state = None
+        self.freeze_reason = None
+        self.unverified_checks = 0
         self.issues = {}
         self.allowed = False
         self.cal = self.candidate = None
@@ -109,6 +111,8 @@ class Engine:
     def reset_readings(self):
         self.last_rss = self.hash = self.started = self.rss_error = None
         self.kernel_state = None
+        self.freeze_reason = None
+        self.unverified_checks = 0
         self.history.clear()
         self.hash_alerts.clear()
         self.issues, self.allowed = {}, False
@@ -180,9 +184,14 @@ class Engine:
                 "excluded": [],
                 "checked": 0,
             }
-        report.update(ts=time.time(), reason=reason)
         previous = self.hash and self.hash["result"]
         result = report["result"]
+        self.unverified_checks = self.unverified_checks + 1 if result == "unknown" else 0
+        retry = result == "unknown" and self.phase == "watching" and self.unverified_checks <= 2
+        report.update(
+            ts=time.time(), reason=reason, retry=retry,
+            consecutive_unverified=self.unverified_checks,
+        )
         if result != "match":
             self.allowed = False
         self.hash = report
@@ -197,13 +206,20 @@ class Engine:
             }[result],
             **report,
         )
-        self.next_hash = time.monotonic() + self.cfg.hash_seconds
-        if result == "mismatch" and self.phase != "frozen":
-            self.hash_alerts.append(report["ts"])
+        delay = min(2, self.cfg.hash_seconds) if retry else self.cfg.hash_seconds
+        self.next_hash = time.monotonic() + delay
+        if self.unverified_checks == 3:
+            self.log("hash_unverified", "warning", "코드 검증 3회 연속 미확인", **report)
+        if result == "mismatch":
+            if self.phase == "frozen":
+                if self.freeze_reason != "코드 해시 불일치":
+                    self.freeze_reason = "코드 해시 불일치"
+                    self.bump()
+            else:
+                self.hash_alerts.append(report["ts"])
+                self.freeze("코드 해시 불일치")
         if result != previous:
             self.bump()
-        if result == "mismatch":
-            self.freeze("코드 해시 불일치")
         return result
 
     def freeze(self, reason):
@@ -219,6 +235,7 @@ class Engine:
             )
             raise
         self.phase = "frozen"
+        self.freeze_reason = reason
         self.kernel_state = verified_state
         self.allowed = False
         self.bump()
@@ -413,6 +430,7 @@ class Engine:
                 self.hash_alerts.clear()
                 self.log("start", "info", "감시 시작")
                 self.next_rss = self.next_hash = 0
+                self.unverified_checks = 0
                 self.tick()
             elif action == "stop" and self.phase == "watching":
                 self.phase, self.started, self.allowed = "ready", None, False
@@ -459,19 +477,34 @@ class Engine:
                 )
             elif action == "freeze" and self.phase == "watching":
                 self.freeze("사용자 동결")
-            elif action == "resume" and self.phase == "frozen":
+            elif action in ("resume", "force_resume") and self.phase == "frozen":
+                forced = action == "force_resume"
+                integrity_hold = self.freeze_reason == "코드 해시 불일치"
+                if not forced and integrity_hold and self.check_hash("재개 전 검사") != "match":
+                    self.log("resume_blocked", "warning", "재개 보류 · 코드 검증 필요",
+                             hash_result=self.hash["result"])
+                    raise ActionError("코드 검사가 일치해야 일반 재개할 수 있습니다.")
+                last_result = self.hash and self.hash["result"]
                 self.kernel_state = self.process.pause(False)
                 self.phase = "watching"
-                self.next_rss = 0
-                self.next_hash = time.monotonic() + self.cfg.hash_seconds
+                self.next_rss = self.next_hash = 0
+                self.freeze_reason = None
+                self.unverified_checks = 0
+                # Demo controls run in the stopped process and need time to restore v1.
+                demo_grace = 10 if forced and self.selected.id == "demo" else 0
                 self.log(
-                    "resume",
-                    "warning",
-                    "사용자가 재개 · 다음 주기에 무결성 재검사",
+                    "force_resume" if forced else "resume",
+                    "warning" if forced else "info",
+                    "사용자가 강제 재개" if forced else "사용자가 재개",
                     signal="SIGCONT",
-                    approved=True,
+                    prior_hash_result=last_result,
+                    demo_restore_seconds=demo_grace,
                     kernel_state=self.kernel_state,
                 )
+                if demo_grace:
+                    self.next_hash = time.monotonic() + demo_grace
+                else:
+                    self.check_hash("강제 재개 직후 검사" if forced else "재개 직후 검사")
             else:
                 raise ActionError("현재 상태에서 실행할 수 없는 작업입니다.")
             self.bump()
@@ -515,6 +548,7 @@ class Engine:
         elif self.phase == "frozen" and self.kernel_state not in ("t", "T"):
             self.log("external_resume", "warning", "외부 재개 감지 · 즉시 해시 검사")
             self.phase = "watching"
+            self.freeze_reason = None
             self.bump()
             self.check_hash("외부 재개")
 
@@ -567,6 +601,7 @@ class Engine:
                         {"id": t.id, "label": t.label} for t in self.targets.values()
                     ],
                     "phase": self.phase,
+                    "freeze_reason": self.freeze_reason,
                     "pid": self.process.pid if self.process else None,
                     "kernel": self.kernel_state,
                     "started": self.started,

@@ -95,8 +95,13 @@ class LinuxIntegration(unittest.TestCase):
                 self.assertTrue(
                     any("libboard.so" in r["region"] for r in e.hash["changes"])
                 )
-                act("resume")
+                with self.assertRaisesRegex(ValueError, "일반 재개"):
+                    act("resume")
+                self.assertEqual(e.process.state(), "T")
+                act("force_resume")
+                self.assertEqual(e.phase, "watching")
                 e.process.command("v1")
+                act("hash")
                 until(lambda: e.hash["result"] == "match")
                 self.assertEqual(e.phase, "watching")
                 print(
