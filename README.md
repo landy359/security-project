@@ -2,52 +2,85 @@
 
 정보보호 팀 프로젝트. Linux에서 프로그램을 실행하고 메모리 사용량(RSS)과 파일 기반 실행 코드의 무결성을 감시한다. 웹 대시보드에서 이미지 뷰어 또는 지뢰찾기를 선택하고, 정상 기준을 수집한 뒤 경고와 이벤트를 확인할 수 있다.
 
-## 개발 환경
+## 실행 전 준비
 
-| 항목 | 팀 개발 환경 |
-| --- | --- |
-| 운영체제 | Ubuntu 데스크톱 또는 기존 Docker의 `security-desktop` Ubuntu 컨테이너 |
-| Python | 3.10 이상, 가상환경 사용 |
-| 웹 | Flask 3.1 이상 4 미만, `requirements.txt`로 설치 |
-| GUI | Tkinter와 실행 중인 Linux 그래픽 세션(XFCE 등) |
-| 저장소 | SQLite. 기준값과 이벤트는 실행 시 지정한 데이터 폴더에 저장 |
-| 통합 테스트 | C 컴파일러(`cc`), GUI 세션 또는 Xvfb |
+- **Ubuntu 데스크톱 사용자**는 [A. Ubuntu에서 실행](#a-ubuntu에서-실행)을 따라간다.
+- **macOS·Windows 사용자**는 Docker Desktop을 설치하고 실행한 다음 [B. Docker Desktop에서 실행](#b-docker-desktop에서-실행)을 따라간다.
+- MemWatch는 Linux의 `/proc`로 메모리를 읽는다. Python 3.10 이상, Tkinter, Flask 및 그래픽 데스크톱 세션이 필요하다.
 
-감시 기능은 Linux의 `/proc`를 사용한다. macOS나 Windows에서 작업할 때는 Docker Ubuntu 데스크톱의 터미널에서 아래 Linux 명령을 실행한다.
+## A. Ubuntu에서 실행
 
-## 소스 받기
+Ubuntu 데스크톱에서 **터미널**을 연다. 모든 명령은 같은 터미널에서 순서대로 실행한다.
+
+### 1. Git과 Python 설치
+
+```bash
+sudo apt update
+sudo apt install git python3 python3-venv python3-tk
+python3 --version
+```
+
+### 2. 소스 받기
 
 ```bash
 git clone https://github.com/landy359/security-project.git
 cd security-project
+ls app.py requirements.txt
 ```
 
-아래 명령은 **MemWatch v3의 `app.py`와 `requirements.txt`가 있는 폴더**에서 실행한다. 수업 자료가 있는 로컬 프로젝트에서는 `코드 히스토리/MemWatch-v3`가 해당 폴더다. 기존 Docker 환경에서는 v2 폴더를 컨테이너에 연결된 `Codes` 아래에 두면 `/workspace/MemWatch-v3`에서 열 수 있다.
+`ls` 출력에 두 파일이 보이면 올바른 폴더다. 이미 저장소를 받아 뒀다면 해당 폴더로 이동한다. 이후 Python 명령은 이 폴더에서 실행한다.
 
-## Ubuntu에서 설치 및 실행
+### 3. 가상환경 만들고 의존성 설치
 
 ```bash
-sudo apt update
-sudo apt install python3 python3-venv python3-tk
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
+```
+
+### 4. 서버 시작
+
+```bash
 .venv/bin/python app.py --bind 127.0.0.1
 ```
 
-같은 Ubuntu 환경의 브라우저에서 [대시보드](http://127.0.0.1:5000)를 연다. 종료할 때는 실행 터미널에서 `Ctrl+C`를 누른다. 다른 데이터 폴더가 필요하면 `--data 경로`를 지정한다. 기본값은 소스 폴더 안의 `data/`다.
+터미널에 실행 주소가 나오면 Ubuntu 브라우저에서 [MemWatch 대시보드](http://127.0.0.1:5000)를 열고 [처음 감시하기](#처음-감시하기)로 이동한다. 실행 중에는 터미널을 열어 둔다. 기준값과 이벤트는 기본적으로 저장소 안의 `data/`에 저장된다.
 
-### 기존 Docker 수업 환경
+## B. Docker Desktop에서 실행
 
-호스트에서 `docker start security-desktop`으로 기존 컨테이너를 시작한다. [Ubuntu 데스크톱](https://127.0.0.1:3001)의 XFCE 터미널에서 실행한다. 컨테이너에 Tk가 설치되어 있어야 하며, 호스트에서 대시보드에 접속하려면 컨테이너를 만들 때 `127.0.0.1:5000:5000` 포트 매핑을 설정해야 한다.
+### 1. Ubuntu 컨테이너 만들기
+
+Docker Desktop이 실행 중인지 확인한다. **Mac 터미널 또는 Windows PowerShell**에서 아래 한 줄을 실행한다. Ubuntu XFCE 화면은 3001번 포트, MemWatch 대시보드는 5000번 포트로 연다. 두 포트는 이 컴퓨터에서만 접근할 수 있게 연결한다.
 
 ```bash
-cd /workspace/MemWatch-v3
-python3 -m venv --system-site-packages /config/memwatch-venv
-/config/memwatch-venv/bin/python -m pip install -r requirements.txt
-/config/memwatch-venv/bin/python app.py --bind 0.0.0.0 --data /config/memwatch-data-v3
+docker run -d --name memwatch-webtop --shm-size=1g -p 127.0.0.1:3001:3001 -p 127.0.0.1:5000:5000 -v memwatch-webtop-config:/config lscr.io/linuxserver/webtop:ubuntu-xfce
 ```
 
-이 구성에서는 호스트 브라우저에서 [대시보드](http://127.0.0.1:5000)를 연다. `/config`는 기존 환경에서 가상환경과 감시 데이터를 두는 경로다.
+이 명령은 최초 1회만 실행한다. 다음부터는 `docker start memwatch-webtop`을 실행한다. 수업용 `security-desktop` 컨테이너에 이미 두 포트가 연결돼 있다면 해당 컨테이너를 `docker start security-desktop`으로 시작하고 2단계로 이동한다.
+
+### 2. Ubuntu 데스크톱 접속
+
+호스트 브라우저에서 [Ubuntu 데스크톱](https://127.0.0.1:3001)을 열고 화면 안에서 **Terminal**을 실행한다. Webtop은 기본 설정에서 자체 서명 인증서를 사용한다. [LinuxServer Webtop 문서](https://docs.linuxserver.io/images/docker-webtop/#application-setup)
+
+### 3. Ubuntu 터미널에서 설치 및 실행
+
+아래 명령은 **브라우저 안에 열린 Ubuntu 터미널**에 입력한다. 소스는 컨테이너의 영구 저장 공간인 `/config`에 받는다.
+
+```bash
+sudo apt update
+sudo apt install git python3 python3-venv python3-tk
+cd /config
+git clone https://github.com/landy359/security-project.git
+cd security-project
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python app.py --bind 0.0.0.0 --data /config/memwatch-data-v3
+```
+
+설치한 뒤 다시 실행할 때는 Ubuntu 터미널에서 `cd /config/security-project`와 마지막 줄의 서버 명령을 실행한다. 기존 수업 환경에서 공유 폴더에 복제해 둔 경우에는 `app.py`가 있는 실제 경로로 이동해서 같은 명령을 사용한다.
+
+### 4. 대시보드 열기
+
+**호스트 브라우저**에서 [MemWatch 대시보드](http://127.0.0.1:5000)를 열어 Ubuntu 데스크톱과 나란히 배치한다. 앱 창은 Ubuntu 데스크톱에 열리고 감시 결과는 대시보드에 표시된다.
 
 ## 처음 감시하기
 
@@ -62,22 +95,63 @@ python3 -m venv --system-site-packages /config/memwatch-venv
 - **강제 재개**는 현재 검사 결과를 확인한 뒤 사용자가 선택할 수 있다. 일반 대상은 재개 직후 다시 검사하고, 불일치가 남으면 다시 동결한다. 시연 대상은 최대 10초 안에 게임 창에서 **v1 복원**을 누른 뒤 **지금 검사**로 결과를 확인할 수 있다.
 - 코드 무결성 카드에는 파일 기반 실행 코드 검사 범위와 제외된 매핑 수가 표시된다. 감시 중 검사 실패는 제한적으로 재시도하며, 세 번 연속 미확인이면 **검증 불가**를 표시한다.
 
-## 코드와 테스트
+## 시연 모드
 
-| 경로 | 역할 |
-| --- | --- |
-| `app.py` | Flask 서버와 실행 옵션 |
-| `monitor/` | 메모리 수집, 판정, 대상 제어, 기준 및 이벤트 저장 |
-| `image_viewer.py`, `minesweeper.py` | 기본 감시 대상 |
-| `templates/`, `static/` | 대시보드 화면 |
-| `tests/` | 단위 테스트와 Linux 통합 테스트 |
+공유 라이브러리 교체로 코드 불일치와 동결을 확인하려면 서버를 실행한 터미널에서 먼저 `Ctrl+C`로 기존 서버를 종료한다. Ubuntu 터미널에서 다음 명령을 실행한다. Docker를 사용 중이면 마지막 줄을 그 아래의 Docker용 명령으로 바꾼다.
+
+```bash
+sudo apt install build-essential
+.venv/bin/python -m tests.build_demo
+.venv/bin/python app.py --demo --target demo --bind 127.0.0.1
+```
+
+```bash
+.venv/bin/python app.py --demo --target demo --bind 0.0.0.0 --data /config/memwatch-data-v3
+```
+
+1. 시연 대상의 정상 기준을 측정하고 저장한다. 기준을 만드는 동안은 모듈 v1 상태에서 게임만 플레이한다.
+2. 감시를 시작하고 게임의 **v2로 교체**를 누른다. 오른쪽 대시보드에서 **코드 불일치**, **동결**, Linux 상태 **T**를 확인한다.
+3. **일반 재개**를 누르면 코드가 여전히 불일치할 때 재개가 보류된다.
+4. **강제 재개**를 승인한 뒤 왼쪽에서 10초 안에 **v1 복원**을 누르고, 대시보드에서 **지금 검사**를 눌러 **일치**를 확인한다.
+
+## 종료
+
+1. 대시보드에서 **대상 종료**를 눌러 감시 중인 앱을 닫는다.
+2. 서버를 실행한 Ubuntu 터미널에서 `Ctrl+C`를 누른다.
+3. Docker를 사용했다면 호스트 터미널에서 `docker stop memwatch-webtop`을 실행한다. 기존 수업 컨테이너를 사용했다면 `docker stop security-desktop`을 실행한다.
+
+## 코드와 폴더 구조
+
+```text
+security-project/
+├── app.py                  Flask 서버, 대시보드 API, 실행 옵션
+├── requirements.txt        Python 의존성
+├── image_viewer.py          기본 감시 대상인 이미지 뷰어
+├── minesweeper.py           기본 감시 대상인 지뢰찾기
+├── monitor/
+│   ├── engine.py           감시 상태, 해시 검사와 동결·재개 처리
+│   ├── memory.py           Linux /proc 기반 RSS·실행 코드 읽기
+│   ├── policy.py           RSS 기준값 계산과 경고 단계 판정
+│   ├── catalog.py          감시 대상 등록과 설정
+│   ├── target.py           대상 실행과 프로세스 상태 확인
+│   └── storage.py          SQLite 기준값과 이벤트 저장
+├── templates/index.html    대시보드 HTML
+├── static/                 대시보드 JavaScript와 CSS
+├── tests/                  단위·Linux 통합 테스트와 시연 모듈
+└── docs/monitoring.md      감시 방식과 상세 실행 옵션
+```
+
+## 테스트
+
+Ubuntu 데스크톱 터미널에서 `app.py`가 있는 폴더로 이동한다. 단위 테스트는 첫 줄로 실행할 수 있다. 전체 테스트는 C 컴파일러와 GUI 세션이 있는 환경에서 실행한다.
 
 ```bash
 .venv/bin/python -m unittest tests.test_core -v
+sudo apt install build-essential
 .venv/bin/python -m unittest discover -v
 ```
 
-Docker에서는 두 명령의 Python을 `/config/memwatch-venv/bin/python`으로 바꾼다. Linux 통합 테스트를 실행하려면 필요에 따라 `sudo apt install build-essential`로 컴파일러를 설치한다. GUI 테스트는 `DISPLAY`가 설정된 데스크톱 터미널에서 실행한다. 테스트 출력의 `skipped` 항목은 환경 조건을 확인한다.
+GUI 테스트가 `skipped`라면 Ubuntu 데스크톱 안의 터미널에서 `echo "$DISPLAY"`로 그래픽 세션 연결을 확인한다.
 
 ## 문제 해결
 
